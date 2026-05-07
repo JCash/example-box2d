@@ -63,25 +63,29 @@ end
 local function create_bridge(self)
 	create_label(self, "Revolute bridge", v(480, 520))
 
-	local left_anchor = create_anchor(self, v(120, 470))
-	local right_anchor = create_anchor(self, v(840, 470))
-	local segment_count = 14
+	local left_anchor = create_anchor(self, v(120, 520))
+	local right_anchor = create_anchor(self, v(840, 520))
+	local segment_count = 16
 	local segment_half_width = 24
-	local spacing = 48
-	local y = 470
+	local first_x = 120 + segment_half_width
+	local last_x = 840 - segment_half_width
+	local spacing = (last_x - first_x) / (segment_count - 1)
+	local y = 520
+	local sag = 35
 	local previous = left_anchor
 
 	for i = 1, segment_count do
-		local x = 120 + i * spacing
-		local segment = create_rect(self, v(x, y))
+		local t = (i - 1) / (segment_count - 1)
+		local x = first_x + (i - 1) * spacing
+		local segment = create_rect(self, v(x, y - math.sin(t * math.pi) * sag))
 		local anchor_a = i == 1 and v(0, 0) or v(segment_half_width, 0)
 		create_joint(self, "revolute", previous, segment, {
 			local_anchor_a = anchor_a,
 			local_anchor_b = v(-segment_half_width, 0),
 			collide_connected = false,
 			enable_spring = true,
-			hertz = 0.25,
-			damping_ratio = 0.35,
+			hertz = 0.08,
+			damping_ratio = 0.2,
 		})
 		previous = segment
 	end
@@ -91,8 +95,8 @@ local function create_bridge(self)
 		local_anchor_b = v(0, 0),
 		collide_connected = false,
 		enable_spring = true,
-		hertz = 0.25,
-		damping_ratio = 0.35,
+		hertz = 0.08,
+		damping_ratio = 0.2,
 	})
 end
 
@@ -210,10 +214,20 @@ local function create_v2_samples(self)
 		return
 	end
 
-	create_label(self, "Friction", v(150, 230))
-	create_joint(self, "friction", create_anchor(self, v(115, 190)), create_square(self, v(185, 190)), {
-		max_force = 350,
-		max_torque = 35,
+	create_label(self, "Friction fall", v(150, 275))
+	create_label(self, "free", v(90, 245))
+	create_label(self, "tethered", v(205, 245))
+	local free = create_square(self, v(90, 225))
+	local tethered = create_square(self, v(205, 225))
+	local tether_anchor = create_anchor(self, v(205, 225))
+	b2d.body.set_angular_velocity(free, 4)
+	b2d.body.set_angular_velocity(tethered, 4)
+	create_joint(self, "friction", tether_anchor, tethered, {
+		local_anchor_a = v(0, 0),
+		local_anchor_b = v(0, 0),
+		collide_connected = false,
+		max_force = 420,
+		max_torque = 28,
 	})
 
 	create_label(self, "Rope", v(325, 230))
