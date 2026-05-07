@@ -1,0 +1,13 @@
+images {
+  image: "/images/box.png"
+}
+images {
+  image: "/images/sphere.png"
+}
+images {
+  image: "/images/star.png"
+}
+images {
+  image: "/images/triangle.png"
+}
+extrude_borders: 2

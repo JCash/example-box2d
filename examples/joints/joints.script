@@ -1,0 +1,312 @@
+local function v(x, y)
+	return vmath.vector3(x, y, 0)
+end
+
+local function store(self, list, value)
+	table.insert(list, value)
+	return value
+end
+
+local function create_object(self, factory_url, position)
+	local id = factory.create(factory_url, position)
+	local body = b2d and b2d.get_body(msg.url(nil, id, "collisionobject")) or nil
+	if body and b2d.body.set_active then
+		b2d.body.set_active(body, true)
+	end
+	store(self, self.ids, id)
+	if body then
+		store(self, self.bodies, body)
+	end
+	return body, id
+end
+
+local function create_label(self, text, position)
+	local id = factory.create("#label_factory", position)
+	label.set_text(msg.url(nil, id, "label"), text)
+	store(self, self.ids, id)
+	return id
+end
+
+local function create_visual(self, factory_url, position)
+	local id = factory.create(factory_url, position)
+	store(self, self.ids, id)
+	return id
+end
+
+local function create_joint(self, name, ...)
+	local creator = b2d and b2d.joint and b2d.joint["create_" .. name]
+	if not creator then
+		return nil
+	end
+
+	local ok, joint = pcall(creator, ...)
+	if not ok then
+		print("Failed to create " .. name .. " joint:", joint)
+		return nil
+	end
+
+	return store(self, self.joints, joint)
+end
+
+local function create_anchor(self, position)
+	return create_object(self, "#anchor_factory", position)
+end
+
+local function create_square(self, position)
+	return create_object(self, "#square_factory", position)
+end
+
+local function create_rect(self, position)
+	return create_object(self, "#rect_factory", position)
+end
+
+local function create_bridge(self)
+	create_label(self, "Revolute bridge", v(480, 520))
+
+	local left_anchor = create_anchor(self, v(120, 470))
+	local right_anchor = create_anchor(self, v(840, 470))
+	local segment_count = 14
+	local segment_half_width = 24
+	local spacing = 48
+	local y = 470
+	local previous = left_anchor
+
+	for i = 1, segment_count do
+		local x = 120 + i * spacing
+		local segment = create_rect(self, v(x, y))
+		local anchor_a = i == 1 and v(0, 0) or v(segment_half_width, 0)
+		create_joint(self, "revolute", previous, segment, {
+			local_anchor_a = anchor_a,
+			local_anchor_b = v(-segment_half_width, 0),
+			collide_connected = false,
+			enable_spring = true,
+			hertz = 0.25,
+			damping_ratio = 0.35,
+		})
+		previous = segment
+	end
+
+	create_joint(self, "revolute", previous, right_anchor, {
+		local_anchor_a = v(segment_half_width, 0),
+		local_anchor_b = v(0, 0),
+		collide_connected = false,
+		enable_spring = true,
+		hertz = 0.25,
+		damping_ratio = 0.35,
+	})
+end
+
+local function create_distance_sample(self)
+	create_label(self, "Distance", v(170, 370))
+	local a = create_anchor(self, v(130, 330))
+	local b = create_square(self, v(210, 330))
+	create_joint(self, "distance", a, b, {
+		length = 80,
+		min_length = 50,
+		max_length = 110,
+		enable_spring = true,
+		hertz = 2.0,
+		damping_ratio = 0.3,
+		local_anchor_a = v(0, 0),
+		local_anchor_b = v(0, 0),
+	})
+end
+
+local function create_prismatic_sample(self)
+	create_label(self, "Prismatic", v(350, 370))
+	local axis = v(math.sqrt(0.5), math.sqrt(0.5))
+	local a = create_anchor(self, v(310, 310))
+	local b = create_square(self, v(355, 355))
+	create_joint(self, "prismatic", a, b, {
+		local_axis_a = axis,
+		enable_limit = true,
+		lower_translation = -55,
+		upper_translation = 55,
+		enable_motor = true,
+		max_motor_force = 500,
+		motor_speed = 25,
+	})
+end
+
+local function create_weld_sample(self)
+	create_label(self, "Weld", v(525, 370))
+	local a = create_anchor(self, v(500, 330))
+	local b = create_square(self, v(535, 330))
+	create_joint(self, "weld", a, b, {
+		local_anchor_a = v(0, 0),
+		local_anchor_b = v(-16, 0),
+		hertz = 3.0,
+		damping_ratio = 0.6,
+	})
+end
+
+local function create_wheel_sample(self)
+	create_label(self, "Wheel", v(700, 370))
+	local a = create_anchor(self, v(680, 340))
+	local b = create_square(self, v(720, 300))
+	create_joint(self, "wheel", a, b, {
+		local_axis_a = v(0, 1),
+		enable_spring = true,
+		hertz = 4.0,
+		damping_ratio = 0.7,
+		enable_motor = true,
+		max_motor_torque = 150,
+		motor_speed = -8,
+	})
+end
+
+local function create_mouse_sample(self)
+	create_label(self, "Mouse", v(850, 370))
+	local a = b2d.get_body(msg.url(nil, "walls", "collisionobject"))
+	local b = create_square(self, v(850, 290))
+	if not a or not b then
+		print("Could not create mouse joint sample.")
+		return
+	end
+
+	self.mouse = {
+		anchor = a,
+		body = b,
+		cursor_id = create_visual(self, "#cursor_factory", v(850, 340)),
+		joint = create_joint(self, "mouse", a, b, {
+			target = v(850, 340),
+			max_force = 1000,
+			hertz = 5.0,
+			damping_ratio = 0.7,
+		}),
+		x = 850,
+		y = 340,
+		min_x = 790,
+		max_x = 910,
+		t = 0,
+	}
+end
+
+local function update_mouse_joint(self, dt)
+	if not self.mouse then
+		return
+	end
+
+	self.mouse.t = self.mouse.t + dt
+	local middle_x = (self.mouse.min_x + self.mouse.max_x) * 0.5
+	local half_width = (self.mouse.max_x - self.mouse.min_x) * 0.5
+	local target = v(middle_x + math.sin(self.mouse.t * 1.4) * half_width, self.mouse.y)
+
+	if self.mouse.cursor_id then
+		go.set_position(target, msg.url(nil, self.mouse.cursor_id, nil))
+	end
+
+	if self.mouse.joint and b2d.joint.set_mouse_target then
+		local ok, err = pcall(b2d.joint.set_mouse_target, self.mouse.joint, target)
+		if ok then
+			return
+		end
+		print("Failed to set mouse joint target:", err)
+	end
+end
+
+local function create_v2_samples(self)
+	if not b2d.joint.create_friction then
+		return
+	end
+
+	create_label(self, "Friction", v(150, 230))
+	create_joint(self, "friction", create_anchor(self, v(115, 190)), create_square(self, v(185, 190)), {
+		max_force = 350,
+		max_torque = 35,
+	})
+
+	create_label(self, "Rope", v(325, 230))
+	create_joint(self, "rope", create_anchor(self, v(300, 205)), create_square(self, v(355, 165)), {
+		local_anchor_a = v(0, 0),
+		local_anchor_b = v(0, 0),
+		max_length = 80,
+	})
+
+	create_label(self, "Pulley", v(515, 230))
+	create_joint(self, "pulley", create_square(self, v(475, 160)), create_square(self, v(555, 160)), {
+		ground_anchor_a = v(475, 245),
+		ground_anchor_b = v(555, 245),
+		local_anchor_a = v(0, 0),
+		local_anchor_b = v(0, 0),
+		length_a = 95,
+		length_b = 95,
+		ratio = 1.0,
+	})
+
+	create_label(self, "Gear", v(735, 230))
+	local ground_a = create_anchor(self, v(690, 180))
+	local ground_b = create_anchor(self, v(780, 180))
+	local body_a = create_square(self, v(690, 180))
+	local body_b = create_square(self, v(780, 180))
+	b2d.body.set_angular_velocity(body_a, 0.8)
+	b2d.body.set_angular_velocity(body_b, -0.8)
+	local revolute_a = create_joint(self, "revolute", ground_a, body_a, {})
+	local revolute_b = create_joint(self, "revolute", ground_b, body_b, {})
+	if revolute_a and revolute_b then
+		create_joint(self, "gear", revolute_a, revolute_b, { ratio = -1.0 })
+	end
+end
+
+local function create_v3_samples(self)
+	if not b2d.joint.create_motor then
+		return
+	end
+
+	create_label(self, "Motor", v(185, 230))
+	create_joint(self, "motor", create_anchor(self, v(150, 180)), create_square(self, v(215, 160)), {
+		linear_offset = v(65, -20),
+		angular_offset = math.rad(20),
+		max_force = 600,
+		max_torque = 120,
+		correction_factor = 0.4,
+	})
+
+	create_label(self, "Filter", v(385, 230))
+	create_joint(self, "filter", create_square(self, v(365, 170)), create_square(self, v(395, 170)), {})
+end
+
+local function create_samples(self)
+	create_bridge(self)
+	create_distance_sample(self)
+	create_prismatic_sample(self)
+	create_weld_sample(self)
+	create_wheel_sample(self)
+	create_mouse_sample(self)
+	create_v2_samples(self)
+	create_v3_samples(self)
+end
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+
+	self.ids = {}
+	self.bodies = {}
+	self.joints = {}
+
+	if not b2d then
+		print("Found no Box2D support!")
+		return
+	end
+
+	self.version = b2d.get_version()
+	print("Joints example using Box2D", self.version.major, self.version.middle, self.version.minor)
+	create_samples(self)
+end
+
+function update(self, dt)
+	update_mouse_joint(self, dt)
+end
+
+function on_input(self, action_id, action)
+	if action_id ~= hash("touch") or not action.pressed then
+		return false
+	end
+
+	if action.x < 210 and action.y > 548 then
+		return false
+	end
+
+	create_square(self, v(action.x, action.y))
+	return true
+end
