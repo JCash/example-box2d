@@ -1,0 +1,133 @@
+local shape = require("examples.create_body.shape")
+
+local function spawn(self, objecttype, position)
+	--print("Spawn", "box", position)
+	local props = { type = objecttype }
+	local rot = nil -- todo: make it random in euler z
+	local id = factory.create("#factory", position, nil, props)
+	
+-- 		if objecttype == shape.SHAPE_TYPE_BOX then
+-- 		if b2d then
+-- 			local url = msg.url(nil, id, "collisionobject")
+-- 
+-- 			local body = b2d.get_body(url)
+-- 			--print("is active: ", b2d.body.is_active(body))
+-- 			b2d.body.set_active(body, true)
+-- 			--print("get velocity (1): ", b2d.body.get_linear_velocity(body))
+-- 			b2d.body.set_linear_velocity(body, vmath.vector3(0, 10, 0))
+-- 			--print("get velocity (2): ", b2d.body.get_linear_velocity(body))
+-- 
+-- 			--b2d.body.dump(dump)
+-- 			--print("next", b2d.body.get_next(body))
+-- 			table.insert(self.objects, body)
+-- 			table.insert(self.ids, id)
+-- 
+-- 			self.last = body
+-- 		end
+-- 	end
+-- 
+end
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+
+	self.objecttype = shape.SHAPE_TYPE_BOX
+	-- self.objecttype = shape.SHAPE_TYPE_SPHERE
+	-- self.objecttype = shape.SHAPE_TYPE_TRIANGLE
+	-- self.objecttype = shape.SHAPE_TYPE_STAR
+	--label.set_text("go#label", "type: " .. self.objecttype)
+
+	self.objects = {}
+	if b2d then
+		self.world = b2d.get_world()
+	else
+		print("Found no Box2D support!")
+	end
+
+	self.last = nil
+	self.ids = {}
+
+	-- 	local step = 40
+	-- 	for y=1,15 do
+	-- 		local yy = 100 + y * step
+	-- 		for x=1,15 do
+	-- 			local xx = 100 + x * step
+	-- 
+	-- 			spawn(self, "box", vmath.vector3(xx, yy, 0))
+	-- 		end
+	-- 	end
+	-- 
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+	-- Add update code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function fixed_update(self, dt)
+	-- This function is called if 'Fixed Update Frequency' is enabled in the Engine section of game.project
+	-- Can be coupled with fixed updates of the physics simulation if 'Use Fixed Timestep' is enabled in
+	-- Physics section of game.project
+	-- Add update code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+	-- Add message-handling code here
+	-- Learn more: https://defold.com/manuals/message-passing/
+	-- Remove this function if not needed
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("touch") and action.pressed then
+		spawn(self, self.objecttype, vmath.vector3(action.x, action.y, 0))
+
+	elseif action_id == hash("JUMP") and action.pressed then
+		----print("JUMP")
+
+		for _, body in ipairs(self.objects) do
+			local pos = b2d.body.get_position(body)
+			b2d.body.apply_linear_impulse(body, vmath.vector3(300,200,0), pos + vmath.vector3(16,16,0))
+		end
+
+		local body = self.last
+		while body do
+			local pos = b2d.body.get_position(body)
+			b2d.body.apply_linear_impulse(body, vmath.vector3(300,200,0), pos + vmath.vector3(16,16,0))
+			body = b2d.body.get_next(body)
+		end
+	elseif action_id == hash("LEFT") and action.pressed then
+		--print(action_id)
+-- 
+-- 		for _, body in ipairs(self.objects) do
+-- 			local velocity = b2d.body.get_linear_velocity(body)
+-- 			b2d.body.set_linear_velocity(body, velocity * 0.5)
+-- 		end
+
+		local body = self.last
+		while body do
+			local velocity = b2d.body.get_linear_velocity(body)
+			b2d.body.set_linear_velocity(body, velocity * 0.5)
+			body = b2d.body.get_next(body)
+		end
+	elseif action_id == hash("RIGHT") and action.pressed then
+		for _, body in ipairs(self.objects) do
+			local velocity = b2d.body.get_angular_velocity(body)
+			b2d.body.set_angular_velocity(body, velocity * 2.0)
+		end
+	end
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end

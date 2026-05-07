@@ -1,0 +1,54 @@
+local MANY_PROXY = "#many_proxy"
+local JOINTS_PROXY = "#joints_proxy"
+local MENU_GUI = "#gui"
+
+local function show_menu(visible)
+	msg.post(MENU_GUI, "set_visible", { visible = visible })
+end
+
+function init(self)
+	self.state = "menu"
+	_G.box2d_menu_controller_url = msg.url()
+end
+
+function final(self)
+	if _G.box2d_menu_controller_url == msg.url() then
+		_G.box2d_menu_controller_url = nil
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("load_many") and self.state == "menu" then
+		self.state = "loading_many"
+		show_menu(false)
+		msg.post(MANY_PROXY, "load")
+	elseif message_id == hash("load_joints") and self.state == "menu" then
+		self.state = "loading_joints"
+		show_menu(false)
+		msg.post(JOINTS_PROXY, "load")
+	elseif message_id == hash("proxy_loaded") and sender.fragment == hash("many_proxy") then
+		self.state = "many"
+		msg.post(sender, "init")
+		msg.post(sender, "enable")
+	elseif message_id == hash("proxy_loaded") and sender.fragment == hash("joints_proxy") then
+		self.state = "joints"
+		msg.post(sender, "init")
+		msg.post(sender, "enable")
+	elseif message_id == hash("back") and self.state == "many" then
+		self.state = "unloading_many"
+		msg.post(MANY_PROXY, "disable")
+		msg.post(MANY_PROXY, "final")
+		msg.post(MANY_PROXY, "unload")
+	elseif message_id == hash("back") and self.state == "joints" then
+		self.state = "unloading_joints"
+		msg.post(JOINTS_PROXY, "disable")
+		msg.post(JOINTS_PROXY, "final")
+		msg.post(JOINTS_PROXY, "unload")
+	elseif message_id == hash("proxy_unloaded") and sender.fragment == hash("many_proxy") then
+		self.state = "menu"
+		show_menu(true)
+	elseif message_id == hash("proxy_unloaded") and sender.fragment == hash("joints_proxy") then
+		self.state = "menu"
+		show_menu(true)
+	end
+end
