@@ -17,6 +17,7 @@ dependencies#0 = https://github.com/andsve/dirtylarry/archive/master.zip
 
 [native_extension]
 _app_manifest = test.appmanifest
+app_manifest = /box2dv3.appmanifest
 
 [physics]
 debug = 1
@@ -35,3 +36,4 @@ htmlfile = /builtins/manifests/web/engine_template.htmlsddf
 
 [sprite]
 max_count = 512
+

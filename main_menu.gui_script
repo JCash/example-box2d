@@ -1,15 +1,32 @@
 local dirtylarry = require "dirtylarry/dirtylarry"
 
+local function get_box2d_version_text()
+	local box2d = rawget(_G, "box2d") or rawget(_G, "b2d")
+	if not box2d or not box2d.get_version then
+		return "Box2d unknown"
+	end
+
+	local ok, version = pcall(box2d.get_version)
+	if not ok or not version then
+		return "Box2d unknown"
+	end
+
+	return string.format("Box2d %s.%s.%s", version.major or "?", version.middle or "?", version.minor or "?")
+end
+
 local function set_visible(self, visible)
 	self.visible = visible
 	for _, button in ipairs(self.buttons) do
 		gui.set_enabled(button.bg, visible)
 		gui.set_enabled(button.label, visible)
 	end
+	gui.set_enabled(self.version_label, visible)
 end
 
 function init(self)
 	msg.post(".", "acquire_input_focus")
+	self.version_label = gui.get_node("box2d_version")
+	gui.set_text(self.version_label, get_box2d_version_text())
 	self.buttons = {
 		{
 			id = "many_button",

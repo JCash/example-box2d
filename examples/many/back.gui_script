@@ -1,9 +1,25 @@
 local dirtylarry = require "dirtylarry/dirtylarry"
 
+local function get_box2d_version_text()
+	local box2d = rawget(_G, "box2d") or rawget(_G, "b2d")
+	if not box2d or not box2d.get_version then
+		return "Box2d unknown"
+	end
+
+	local ok, version = pcall(box2d.get_version)
+	if not ok or not version then
+		return "Box2d unknown"
+	end
+
+	return string.format("Box2d %s.%s.%s", version.major or "?", version.middle or "?", version.minor or "?")
+end
+
 function init(self)
 	msg.post(".", "acquire_input_focus")
 	self.button_bg = gui.get_node("back_button/larrybutton")
 	self.button_label = gui.get_node("back_button/larrylabel")
+	self.version_label = gui.get_node("box2d_version")
+	gui.set_text(self.version_label, get_box2d_version_text())
 end
 
 function on_input(self, action_id, action)
